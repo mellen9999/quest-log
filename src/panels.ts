@@ -117,16 +117,17 @@ export function setupPanels(
       const displayName = p.name.length > nameMax
         ? p.name.slice(0, nameMax - 1) + "…"
         : p.name
-      const dirtyTag = git?.dirty ? ` ${fg(C.yellow, "*")}` : ""
+      const dirtyStr = git?.dirty ? ` ${fg(C.yellow, "*")}` : ""
 
       if (sel) {
-        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${displayName}${dirtyTag} {/${C.bg}-fg}{/${C.blue}-bg}`)
+        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${displayName}${dirtyStr} {/${C.bg}-fg}{/${C.blue}-bg}`)
       } else {
-        lines.push(`{${nameFg}-fg} ${icon} ${displayName}${dirtyTag}{/${nameFg}-fg}`)
+        // Sequential segments — no nesting
+        lines.push(` ${icon} ${fg(nameFg, displayName)}${dirtyStr}`)
       }
 
       // Progress bar + branch (truncate to fit panel)
-      const barBase = `{${C.text}-fg}   ${progressBar(stats.done, stats.total)}{/${C.text}-fg}`
+      const barBase = `   ${progressBar(stats.done, stats.total)}`
       const barVisLen = 3 + 8 + 1 + `${stats.done}/${stats.total}`.length
       if (git) {
         const maxBranch = Math.max(3, panelWidth - barVisLen - 2)
@@ -173,7 +174,7 @@ export function setupPanels(
       if (sel) {
         lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${t.name} {/${C.bg}-fg}{/${C.blue}-bg}`)
       } else {
-        lines.push(`{${nameFg}-fg} ${icon} ${t.name}{/${nameFg}-fg}`)
+        lines.push(` ${icon} ${fg(nameFg, t.name)}`)
       }
     }
     panel.setContent(lines.join("\n"))
@@ -209,7 +210,7 @@ export function setupPanels(
       if (sel) {
         lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${s.name} {/${C.bg}-fg}{/${C.blue}-bg}`)
       } else {
-        lines.push(`{${nameFg}-fg} ${icon} ${s.name}{/${nameFg}-fg}`)
+        lines.push(` ${icon} ${fg(nameFg, s.name)}`)
       }
     }
     panel.setContent(lines.join("\n"))
