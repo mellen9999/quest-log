@@ -84,6 +84,13 @@ export function isPartiallyDone(p: Project): boolean {
   return done > 0 && done < total
 }
 
+export function swapItems<T>(arr: T[], i: number, j: number): void {
+  if (i < 0 || j < 0 || i >= arr.length || j >= arr.length) return
+  const tmp = arr[i]!
+  arr[i] = arr[j]!
+  arr[j] = tmp
+}
+
 export function globalStats(data: QuestData): { projects: number; tasks: number; pct: number } {
   let tasks = 0
   let done = 0

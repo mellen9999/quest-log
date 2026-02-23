@@ -26,10 +26,22 @@ export interface QuestData {
 
 export type PanelName = "projects" | "tasks" | "subtasks"
 
+export interface SessionInfo {
+  windowName: string
+  projectId: string
+  transcriptPath: string
+  startedAt: number
+}
+
 export interface AppState {
   data: QuestData
   panel: PanelName
   projectIdx: number
   taskIdx: number
   subtaskIdx: number
+  sessions: Map<string, SessionInfo>
+  rightPaneMode: "tasks" | "log"
+  inputMode: boolean
+  searchMode: boolean
+  searchQuery: string
 }

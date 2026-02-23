@@ -33,7 +33,7 @@ export function createStatusBar(screen: blessed.Widgets.Screen) {
     width: "100%",
     height: 1,
     tags: true,
-    content: fg(C.subtext, " h/l=panel | j/k=move | enter=launch | space=toggle | a=add | d=del | S=scan | ?=help | q=quit"),
+    content: fg(C.subtext, " h/l=panel | j/k=move | enter=launch | space=toggle | a=add | d=del | ?=help | q=quit"),
     style: { bg: C.surface, fg: C.dim },
   })
 }
@@ -68,6 +68,47 @@ export function createPanel(opts: PanelOpts) {
       scrollbar: { bg: C.overlay },
     },
     scrollbar: { ch: "▐", style: { bg: C.overlay } } as any,
+  })
+}
+
+export function createLogPanel(screen: blessed.Widgets.Screen) {
+  return blessed.box({
+    parent: screen,
+    top: 1,
+    left: "30%",
+    width: "70%",
+    height: "100%-2",
+    tags: false,
+    scrollable: true,
+    alwaysScroll: true,
+    mouse: false,
+    label: " ⚔ Session ",
+    border: { type: "line" },
+    hidden: true,
+    style: {
+      bg: C.surface,
+      fg: C.text,
+      border: { fg: C.peach },
+      label: { fg: C.peach },
+      scrollbar: { bg: C.overlay },
+    },
+    scrollbar: { ch: "▐", style: { bg: C.overlay } } as any,
+  })
+}
+
+export function createInputBox(screen: blessed.Widgets.Screen) {
+  return blessed.textbox({
+    parent: screen,
+    bottom: 1,
+    left: "30%",
+    width: "70%",
+    height: 1,
+    inputOnFocus: true,
+    hidden: true,
+    style: {
+      bg: C.overlay,
+      fg: C.text,
+    },
   })
 }
 
