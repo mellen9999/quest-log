@@ -431,7 +431,7 @@ export function setupPanels(
         "new-window",
         "-n", `⚔ ${proj.name}`,
         "-c", cwd,
-        "bash", "-c", `claude --prompt 'Work on: ${prompt}'`,
+        "claude", `Work on: ${taskDesc}`,
       ])
     } catch {
       // not in tmux or tmux error
