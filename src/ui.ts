@@ -32,7 +32,7 @@ export function createStatusBar(screen: blessed.Widgets.Screen) {
     width: "100%",
     height: 1,
     tags: true,
-    content: fg(C.subtext, " h/l panel  j/k move  enter launch  space toggle  a add  d del  S scan  ? help  q quit"),
+    content: ` ${fg(C.text, "h/l")} panel  ${fg(C.text, "j/k")} move  ${fg(C.text, "enter")} launch  ${fg(C.text, "space")} toggle  ${fg(C.text, "a")} add  ${fg(C.text, "d")} del  ${fg(C.text, "S")} scan  ${fg(C.text, "?")} help  ${fg(C.text, "q")} quit`,
     style: { bg: C.surface, fg: C.dim },
   })
 }
