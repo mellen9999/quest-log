@@ -4,6 +4,7 @@ import { randomUUID } from "crypto"
 import type { QuestData, Project, Task, Subtask } from "./types"
 
 export const DATA_PATH = join(dirname(import.meta.dir), "data", "quests.json")
+export let lastSaveTs = 0
 
 function defaultData(): QuestData {
   return { projects: [] }
@@ -22,6 +23,7 @@ export function load(): QuestData {
 export function save(data: QuestData): void {
   const dir = dirname(DATA_PATH)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  lastSaveTs = Date.now()
   writeFileSync(DATA_PATH, JSON.stringify(data, null, 2))
 }
 

@@ -538,13 +538,8 @@ export function setupPanels(
   })
 
   // Watch quests.json for external changes (e.g. Claude sessions writing tasks)
-  let lastSave = Date.now()
-  const origSave = store.save
-  store.save = (data) => { lastSave = Date.now(); origSave(data) }
-
   watch(store.DATA_PATH, { persistent: false }, () => {
-    // Skip reloads triggered by our own saves (within 500ms)
-    if (Date.now() - lastSave < 500) return
+    if (Date.now() - store.lastSaveTs < 500) return
     const fresh = store.load()
     state.data = fresh
     refreshGitCache(state.data.projects)
