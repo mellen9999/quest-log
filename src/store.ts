@@ -3,7 +3,7 @@ import { join, dirname } from "path"
 import { randomUUID } from "crypto"
 import type { QuestData, Project, Task, Subtask } from "./types"
 
-const DATA_PATH = join(dirname(import.meta.dir), "data", "quests.json")
+export const DATA_PATH = join(dirname(import.meta.dir), "data", "quests.json")
 
 function defaultData(): QuestData {
   return { projects: [] }

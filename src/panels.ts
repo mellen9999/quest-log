@@ -1,4 +1,5 @@
 import blessed from "neo-blessed"
+import { watch } from "fs"
 import { execFileSync } from "child_process"
 import { C, fg, selLine, statusLine, progressBar } from "./theme"
 import { setFocused } from "./ui"
@@ -534,6 +535,20 @@ export function setupPanels(
         store.save(state.data)
         process.exit(0)
     }
+  })
+
+  // Watch quests.json for external changes (e.g. Claude sessions writing tasks)
+  let lastSave = Date.now()
+  const origSave = store.save
+  store.save = (data) => { lastSave = Date.now(); origSave(data) }
+
+  watch(store.DATA_PATH, { persistent: false }, () => {
+    // Skip reloads triggered by our own saves (within 500ms)
+    if (Date.now() - lastSave < 500) return
+    const fresh = store.load()
+    state.data = fresh
+    refreshGitCache(state.data.projects)
+    renderAll()
   })
 
   // Initial render
