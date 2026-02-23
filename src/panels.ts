@@ -7,34 +7,7 @@ import { showInputModal, showConfirmModal, showHelpOverlay } from "./modal"
 import * as store from "./store"
 import { scanRepos, getRepoStatus } from "./scan"
 import type { RepoInfo } from "./scan"
-import type { AppState, PanelName, Project } from "./types"
-
-const CONTINUE_LABEL = "Continue..."
-
-function getContinuePrompt(proj: Project) {
-  const pending = proj.tasks.filter(t => !t.done)
-  const done = proj.tasks.filter(t => t.done)
-  const lines: string[] = []
-  lines.push(`Continue working on ${proj.name}.`)
-  if (done.length > 0) lines.push(`Already done: ${done.map(t => t.name).join(", ")}.`)
-  if (pending.length === 0) {
-    lines.push("All tasks complete. Look for anything missed or improvements.")
-  } else {
-    for (const t of pending) {
-      const pendingSubs = t.subtasks.filter(s => !s.done)
-      const doneSubs = t.subtasks.filter(s => s.done)
-      if (pendingSubs.length > 0) {
-        let line = `- ${t.name}: TODO ${pendingSubs.map(s => s.name).join(", ")}`
-        if (doneSubs.length > 0) line += ` (done: ${doneSubs.map(s => s.name).join(", ")})`
-        lines.push(line)
-      } else {
-        lines.push(`- ${t.name}`)
-      }
-    }
-    lines.push("Pick up where we left off. Start with the first incomplete item.")
-  }
-  return lines.join("\n")
-}
+import type { AppState, PanelName } from "./types"
 
 const PANELS: PanelName[] = ["projects", "tasks", "subtasks"]
 
@@ -69,25 +42,15 @@ export function setupPanels(
   let gPending = false
   let lastLaunch = 0
 
-  function getRealTaskIdx(): number {
-    return state.taskIdx - 1
-  }
-
-  function getRealTask() {
-    const proj = state.data.projects[state.projectIdx]
-    const ri = getRealTaskIdx()
-    return ri >= 0 ? proj?.tasks[ri] : undefined
-  }
-
   function clampIndices() {
     const pLen = state.data.projects.length
     state.projectIdx = pLen === 0 ? 0 : Math.min(state.projectIdx, pLen - 1)
 
     const proj = state.data.projects[state.projectIdx]
-    const tLen = proj ? proj.tasks.length + 1 : 0
+    const tLen = proj ? proj.tasks.length : 0
     state.taskIdx = tLen === 0 ? 0 : Math.min(state.taskIdx, tLen - 1)
 
-    const task = getRealTask()
+    const task = proj?.tasks[state.taskIdx]
     const sLen = task ? task.subtasks.length : 0
     state.subtaskIdx = sLen === 0 ? 0 : Math.min(state.subtaskIdx, sLen - 1)
   }
@@ -107,8 +70,8 @@ export function setupPanels(
   function listLength(): number {
     if (state.panel === "projects") return state.data.projects.length
     const proj = state.data.projects[state.projectIdx]
-    if (state.panel === "tasks") return proj ? proj.tasks.length + 1 : 0
-    const task = getRealTask()
+    if (state.panel === "tasks") return proj ? proj.tasks.length : 0
+    const task = proj?.tasks[state.taskIdx]
     return task ? task.subtasks.length : 0
   }
 
@@ -188,20 +151,18 @@ export function setupPanels(
       return
     }
 
-    const lines: string[] = []
-
-    // Virtual "Continue..." entry at index 0
-    const contLabel = CONTINUE_LABEL
-    const contSel = state.panel === "tasks" && state.taskIdx === 0
-    if (contSel) {
-      lines.push(selLine(` ▸ ${contLabel} `))
-    } else {
-      lines.push(` ${fg(C.dim, contLabel)}`)
+    if (tasks.length === 0) {
+      panel.setContent(
+        `\n{center}${fg(C.dim, "No tasks yet")}{/center}` +
+        `\n\n{center}${fg(C.subtext, "Press ")}${fg(C.blue, "a")}${fg(C.subtext, " to add one")}{/center}`
+      )
+      return
     }
 
+    const lines: string[] = []
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i]
-      const sel = state.panel === "tasks" && i + 1 === state.taskIdx
+      const sel = state.panel === "tasks" && i === state.taskIdx
 
       if (sel) {
         lines.push(selLine(` ▸ ${t.name} `))
@@ -216,7 +177,7 @@ export function setupPanels(
   function renderSubtasks() {
     const panel = panels.subtasks
     const proj = state.data.projects[state.projectIdx]
-    const task = getRealTask()
+    const task = proj?.tasks[state.taskIdx]
     const subtasks = task ? task.subtasks : []
 
     if (!task) {
@@ -307,11 +268,10 @@ export function setupPanels(
     const proj = state.data.projects[state.projectIdx]
     if (state.panel === "projects" && proj) {
       store.toggleDone(proj)
-    } else if (state.panel === "tasks") {
-      const task = getRealTask()
-      if (task) store.toggleDone(task)
+    } else if (state.panel === "tasks" && proj?.tasks[state.taskIdx]) {
+      store.toggleDone(proj.tasks[state.taskIdx])
     } else if (state.panel === "subtasks") {
-      const task = getRealTask()
+      const task = proj?.tasks[state.taskIdx]
       if (task?.subtasks[state.subtaskIdx]) {
         store.toggleDone(task.subtasks[state.subtaskIdx])
       }
@@ -343,10 +303,10 @@ export function setupPanels(
           state.subtaskIdx = 0
         } else if (state.panel === "tasks" && proj) {
           store.addTask(proj, name)
-          state.taskIdx = proj.tasks.length // offset for virtual entry
+          state.taskIdx = proj.tasks.length - 1
           state.subtaskIdx = 0
         } else if (state.panel === "subtasks") {
-          const task = getRealTask()
+          const task = proj?.tasks[state.taskIdx]
           if (task) {
             store.addSubtask(task, name)
             state.subtaskIdx = task.subtasks.length - 1
@@ -371,10 +331,9 @@ export function setupPanels(
     let itemName = ""
     if (state.panel === "projects") itemName = state.data.projects[state.projectIdx]?.name ?? ""
     else if (state.panel === "tasks") {
-      if (state.taskIdx === 0) { modalOpen = false; return }
-      itemName = getRealTask()?.name ?? ""
+      itemName = state.data.projects[state.projectIdx]?.tasks[state.taskIdx]?.name ?? ""
     } else {
-      itemName = getRealTask()?.subtasks[state.subtaskIdx]?.name ?? ""
+      itemName = state.data.projects[state.projectIdx]?.tasks[state.taskIdx]?.subtasks[state.subtaskIdx]?.name ?? ""
     }
 
     showConfirmModal({
@@ -386,10 +345,10 @@ export function setupPanels(
         if (state.panel === "projects") {
           store.removeProject(state.data, state.projectIdx)
         } else if (state.panel === "tasks" && proj) {
-          store.removeTask(proj, getRealTaskIdx())
+          store.removeTask(proj, state.taskIdx)
           state.subtaskIdx = 0
         } else if (state.panel === "subtasks") {
-          const task = getRealTask()
+          const task = proj?.tasks[state.taskIdx]
           if (task) store.removeSubtask(task, state.subtaskIdx)
         }
         store.save(state.data)
@@ -411,10 +370,9 @@ export function setupPanels(
     let currentName = ""
     if (state.panel === "projects") currentName = state.data.projects[state.projectIdx]?.name ?? ""
     else if (state.panel === "tasks") {
-      if (state.taskIdx === 0) { modalOpen = false; return }
-      currentName = getRealTask()?.name ?? ""
+      currentName = state.data.projects[state.projectIdx]?.tasks[state.taskIdx]?.name ?? ""
     } else {
-      currentName = getRealTask()?.subtasks[state.subtaskIdx]?.name ?? ""
+      currentName = state.data.projects[state.projectIdx]?.tasks[state.taskIdx]?.subtasks[state.subtaskIdx]?.name ?? ""
     }
 
     showInputModal({
@@ -425,11 +383,10 @@ export function setupPanels(
         modalOpen = false
         const proj = state.data.projects[state.projectIdx]
         if (state.panel === "projects" && proj) proj.name = name
-        else if (state.panel === "tasks") {
-          const task = getRealTask()
-          if (task) task.name = name
+        else if (state.panel === "tasks" && proj?.tasks[state.taskIdx]) {
+          proj.tasks[state.taskIdx].name = name
         } else if (state.panel === "subtasks") {
-          const task = getRealTask()
+          const task = proj?.tasks[state.taskIdx]
           if (task?.subtasks[state.subtaskIdx]) task.subtasks[state.subtaskIdx].name = name
         }
         store.save(state.data)
@@ -451,13 +408,11 @@ export function setupPanels(
     if (!proj) return
 
     let taskDesc = ""
-    const task = getRealTask()
+    const task = proj.tasks[state.taskIdx]
     const subtask = task?.subtasks[state.subtaskIdx]
 
     if (state.panel === "subtasks" && subtask && task) {
       taskDesc = `${task.name}: ${subtask.name}`
-    } else if (state.panel === "tasks" && state.taskIdx === 0) {
-      taskDesc = getContinuePrompt(proj)
     } else if (state.panel === "tasks" && task) {
       taskDesc = task.name
       if (task.subtasks.length > 0) {
