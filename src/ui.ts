@@ -1,5 +1,5 @@
 import blessed from "neo-blessed"
-import { C } from "./theme"
+import { C, fg } from "./theme"
 
 export function createScreen() {
   const screen = blessed.screen({
@@ -32,7 +32,7 @@ export function createStatusBar(screen: blessed.Widgets.Screen) {
     width: "100%",
     height: 1,
     tags: true,
-    content: ` {${C.subtext}-fg}h/l{/} panel  {${C.subtext}-fg}j/k{/} move  {${C.subtext}-fg}⏎{/} launch  {${C.subtext}-fg}␣{/} toggle  {${C.subtext}-fg}a{/} add  {${C.subtext}-fg}d{/} del  {${C.subtext}-fg}S{/} scan  {${C.subtext}-fg}?{/} help  {${C.subtext}-fg}q{/} quit`,
+    content: ` ${fg(C.subtext, "h/l")} panel  ${fg(C.subtext, "j/k")} move  ${fg(C.subtext, "⏎")} launch  ${fg(C.subtext, "␣")} toggle  ${fg(C.subtext, "a")} add  ${fg(C.subtext, "d")} del  ${fg(C.subtext, "S")} scan  ${fg(C.subtext, "?")} help  ${fg(C.subtext, "q")} quit`,
     style: { bg: C.surface, fg: C.dim },
   })
 }

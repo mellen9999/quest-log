@@ -14,16 +14,21 @@ export const C = {
   peach:   "#fab387",
 } as const
 
+// Wrap text in fg color, closing with specific tag (not bare {/})
+export function fg(color: string, text: string): string {
+  return `{${color}-fg}${text}{/${color}-fg}`
+}
+
 export function statusIcon(done: boolean, partial?: boolean): string {
-  if (done) return `{${C.green}-fg}✓{/}`
-  if (partial) return `{${C.yellow}-fg}◆{/}`
-  return `{${C.dim}-fg}○{/}`
+  if (done) return fg(C.green, "✓")
+  if (partial) return fg(C.yellow, "◆")
+  return fg(C.dim, "○")
 }
 
 export function progressBar(done: number, total: number, width = 8): string {
-  if (total === 0) return `{${C.dim}-fg}${"░".repeat(width)} 0/0{/}`
+  if (total === 0) return fg(C.dim, `${"░".repeat(width)} 0/0`)
   const filled = Math.round((done / total) * width)
   const empty = width - filled
-  const bar = `{${C.green}-fg}${"█".repeat(filled)}{/}{${C.dim}-fg}${"░".repeat(empty)}{/}`
-  return `${bar} {${C.subtext}-fg}${done}/${total}{/}`
+  const bar = fg(C.green, "█".repeat(filled)) + fg(C.dim, "░".repeat(empty))
+  return `${bar} ${fg(C.subtext, `${done}/${total}`)}`
 }

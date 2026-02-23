@@ -1,6 +1,6 @@
 import blessed from "neo-blessed"
 import { execFileSync } from "child_process"
-import { C, statusIcon, progressBar } from "./theme"
+import { C, fg, statusIcon, progressBar } from "./theme"
 import { setFocused } from "./ui"
 import { showInputModal, showConfirmModal, showHelpOverlay } from "./modal"
 import * as store from "./store"
@@ -76,13 +76,13 @@ export function setupPanels(
   function renderHeader() {
     const s = store.globalStats(state.data)
     header.setContent(
-      ` {${C.mauve}-fg}⚔ Quest Log{/}` +
-      `{${C.dim}-fg} ──{/} ` +
-      `{${C.text}-fg}${s.projects}{/} {${C.subtext}-fg}projects{/}` +
-      `{${C.dim}-fg} │{/} ` +
-      `{${C.text}-fg}${s.tasks}{/} {${C.subtext}-fg}tasks{/}` +
-      `{${C.dim}-fg} │{/} ` +
-      `{${C.text}-fg}${s.pct}%{/} {${C.subtext}-fg}done{/}`
+      ` ${fg(C.mauve, "⚔ Quest Log")}` +
+      `${fg(C.dim, " ──")} ` +
+      `${fg(C.text, String(s.projects))} ${fg(C.subtext, "projects")}` +
+      `${fg(C.dim, " │")} ` +
+      `${fg(C.text, String(s.tasks))} ${fg(C.subtext, "tasks")}` +
+      `${fg(C.dim, " │")} ` +
+      `${fg(C.text, `${s.pct}%`)} ${fg(C.subtext, "done")}`
     )
   }
 
@@ -92,8 +92,8 @@ export function setupPanels(
 
     if (projects.length === 0) {
       panel.setContent(
-        `\n{center}{${C.dim}-fg}No quests yet{/}{/center}` +
-        `\n\n{center}{${C.subtext}-fg}Press {${C.blue}-fg}a{/} to add one{/}{/center}`
+        `\n{center}${fg(C.dim, "No quests yet")}{/center}` +
+        `\n\n{center}${fg(C.subtext, "Press ")}${fg(C.blue, "a")}${fg(C.subtext, " to add one")}{/center}`
       )
       return
     }
@@ -107,32 +107,32 @@ export function setupPanels(
       const icon = statusIcon(p.done, partial)
 
       const nameFg = p.done ? C.dim : C.text
-      const bgAttr = sel ? `{${C.blue}-bg}{${C.bg}-fg}` : ""
-      const bgEnd = sel ? "{/}" : ""
 
       // Git dirty indicator — truncate name to fit panel
       const git = p.path ? gitCache.get(p.path) : null
       const dirtyMark = git?.dirty ? " *" : ""
       const panelWidth = (panels.projects.width as number) - 2
-      const nameMax = panelWidth - 4 - dirtyMark.length // " ○ " prefix + suffix space
+      const nameMax = panelWidth - 4 - dirtyMark.length
       const displayName = p.name.length > nameMax
         ? p.name.slice(0, nameMax - 1) + "…"
         : p.name
-      const dirtyTag = git?.dirty ? ` {${C.yellow}-fg}*{/}` : ""
+      const dirtyTag = git?.dirty ? ` ${fg(C.yellow, "*")}` : ""
 
-      lines.push(`${bgAttr} ${icon} {${nameFg}-fg}${displayName}{/}${dirtyTag} ${bgEnd}`)
+      if (sel) {
+        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${fg(nameFg, displayName)}${dirtyTag} {/${C.bg}-fg}{/${C.blue}-bg}`)
+      } else {
+        lines.push(` ${icon} ${fg(nameFg, displayName)}${dirtyTag}`)
+      }
 
       // Progress bar + branch (truncate to fit panel)
-      const panelW = (panels.projects.width as number) - 2 // subtract borders
       const barBase = `   ${progressBar(stats.done, stats.total)}`
-      // "   ████░░░░ 3/7" is ~19 visible chars, branch gets the rest
       const barVisLen = 3 + 8 + 1 + `${stats.done}/${stats.total}`.length
       if (git) {
-        const maxBranch = panelW - barVisLen - 2 // 2 for "  " gap
+        const maxBranch = panelWidth - barVisLen - 2
         const branch = git.branch.length > maxBranch
           ? git.branch.slice(0, maxBranch - 1) + "…"
           : git.branch
-        lines.push(`${barBase}  {${C.dim}-fg}${branch}{/}`)
+        lines.push(`${barBase}  ${fg(C.dim, branch)}`)
       } else {
         lines.push(barBase)
       }
@@ -150,14 +150,14 @@ export function setupPanels(
     const tasks = proj ? proj.tasks : []
 
     if (!proj) {
-      panel.setContent(`\n{center}{${C.dim}-fg}Select a project{/}{/center}`)
+      panel.setContent(`\n{center}${fg(C.dim, "Select a project")}{/center}`)
       return
     }
 
     if (tasks.length === 0) {
       panel.setContent(
-        `\n{center}{${C.dim}-fg}No tasks yet{/}{/center}` +
-        `\n\n{center}{${C.subtext}-fg}Press {${C.blue}-fg}a{/} to add one{/}{/center}`
+        `\n{center}${fg(C.dim, "No tasks yet")}{/center}` +
+        `\n\n{center}${fg(C.subtext, "Press ")}${fg(C.blue, "a")}${fg(C.subtext, " to add one")}{/center}`
       )
       return
     }
@@ -168,10 +168,12 @@ export function setupPanels(
       const sel = state.panel === "tasks" && i === state.taskIdx
       const icon = statusIcon(t.done)
       const nameFg = t.done ? C.dim : C.text
-      const bgAttr = sel ? `{${C.blue}-bg}{${C.bg}-fg}` : ""
-      const bgEnd = sel ? "{/}" : ""
 
-      lines.push(`${bgAttr} ${icon} {${nameFg}-fg}${t.name}{/} ${bgEnd}`)
+      if (sel) {
+        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${fg(nameFg, t.name)} {/${C.bg}-fg}{/${C.blue}-bg}`)
+      } else {
+        lines.push(` ${icon} ${fg(nameFg, t.name)}`)
+      }
     }
     panel.setContent(lines.join("\n"))
     ensureVisible(panel, state.taskIdx)
@@ -184,14 +186,14 @@ export function setupPanels(
     const subtasks = task ? task.subtasks : []
 
     if (!task) {
-      panel.setContent(`\n{center}{${C.dim}-fg}Select a task{/}{/center}`)
+      panel.setContent(`\n{center}${fg(C.dim, "Select a task")}{/center}`)
       return
     }
 
     if (subtasks.length === 0) {
       panel.setContent(
-        `\n{center}{${C.dim}-fg}No subtasks{/}{/center}` +
-        `\n\n{center}{${C.subtext}-fg}Press {${C.blue}-fg}a{/} to add one{/}{/center}`
+        `\n{center}${fg(C.dim, "No subtasks")}{/center}` +
+        `\n\n{center}${fg(C.subtext, "Press ")}${fg(C.blue, "a")}${fg(C.subtext, " to add one")}{/center}`
       )
       return
     }
@@ -202,10 +204,12 @@ export function setupPanels(
       const sel = state.panel === "subtasks" && i === state.subtaskIdx
       const icon = statusIcon(s.done)
       const nameFg = s.done ? C.dim : C.text
-      const bgAttr = sel ? `{${C.blue}-bg}{${C.bg}-fg}` : ""
-      const bgEnd = sel ? "{/}" : ""
 
-      lines.push(`${bgAttr} ${icon} {${nameFg}-fg}${s.name}{/} ${bgEnd}`)
+      if (sel) {
+        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${fg(nameFg, s.name)} {/${C.bg}-fg}{/${C.blue}-bg}`)
+      } else {
+        lines.push(` ${icon} ${fg(nameFg, s.name)}`)
+      }
     }
     panel.setContent(lines.join("\n"))
     ensureVisible(panel, state.subtaskIdx)
@@ -230,9 +234,12 @@ export function setupPanels(
     }
 
     // Update labels
-    panels.projects.setLabel(` {${state.panel === "projects" ? C.mauve : C.dim}-fg}⚔ Projects{/} `)
-    panels.tasks.setLabel(` {${state.panel === "tasks" ? C.mauve : C.dim}-fg}Tasks{/} `)
-    panels.subtasks.setLabel(` {${state.panel === "subtasks" ? C.mauve : C.dim}-fg}Subtasks{/} `)
+    const pColor = state.panel === "projects" ? C.mauve : C.dim
+    const tColor = state.panel === "tasks" ? C.mauve : C.dim
+    const sColor = state.panel === "subtasks" ? C.mauve : C.dim
+    panels.projects.setLabel(` ${fg(pColor, "⚔ Projects")} `)
+    panels.tasks.setLabel(` ${fg(tColor, "Tasks")} `)
+    panels.subtasks.setLabel(` ${fg(sColor, "Subtasks")} `)
 
     renderProjects()
     renderTasks()
@@ -255,7 +262,6 @@ export function setupPanels(
     const idx = currentIdx()
     const next = Math.max(0, Math.min(len - 1, idx + dir))
     setCurrentIdx(next)
-    // When moving in projects or tasks, reset child indices
     if (state.panel === "projects") {
       state.taskIdx = 0
       state.subtaskIdx = 0
@@ -339,7 +345,7 @@ export function setupPanels(
 
     showConfirmModal({
       screen,
-      message: `{${C.text}-fg}Delete {${C.red}-fg}${itemName}{/}?`,
+      message: `${fg(C.text, "Delete ")}${fg(C.red, itemName)}${fg(C.text, "?")}`,
       onConfirm: () => {
         modalOpen = false
         const proj = state.data.projects[state.projectIdx]
@@ -404,7 +410,6 @@ export function setupPanels(
     const proj = state.data.projects[state.projectIdx]
     if (!proj) return
 
-    // Build the task description from current selection
     let taskDesc = ""
     const task = proj.tasks[state.taskIdx]
     const subtask = task?.subtasks[state.subtaskIdx]
@@ -426,12 +431,10 @@ export function setupPanels(
 
     const cwd = proj.path || process.env.HOME || "~"
     const prompt = taskDesc
-      .replace(/'/g, "'\\''") // escape single quotes for shell
+      .replace(/'/g, "'\\''")
 
-    // Save before leaving
     store.save(state.data)
 
-    // Launch in new tmux window
     try {
       execFileSync("tmux", [
         "new-window",
@@ -440,7 +443,6 @@ export function setupPanels(
         `claude --prompt 'Work on: ${prompt}'`,
       ])
     } catch {
-      // If not in tmux, fall back to message
       screen.render()
     }
   }
@@ -474,7 +476,6 @@ export function setupPanels(
   screen.on("keypress", (_ch: string, key: blessed.Widgets.Events.IKeyEventArg) => {
     if (modalOpen) return
 
-    // gg support
     if (key.ch === "g") {
       if (gPending) {
         gPending = false
@@ -531,10 +532,9 @@ export function setupPanels(
       case "r":
         renameItem()
         break
-      case "S": {
+      case "S":
         rescan()
         break
-      }
       case "?":
         showHelp()
         break

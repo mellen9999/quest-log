@@ -1,5 +1,5 @@
 import blessed from "neo-blessed"
-import { C } from "./theme"
+import { C, fg } from "./theme"
 
 interface InputModalOpts {
   screen: blessed.Widgets.Screen
@@ -40,14 +40,14 @@ export function showInputModal({ screen, title, value = "", onSubmit, onCancel }
     },
   })
 
-  const hint = blessed.box({
+  blessed.box({
     parent: modal,
     top: 3,
     left: 2,
     width: 36,
     height: 1,
     tags: true,
-    content: `{${C.subtext}-fg}[Enter] save    [Esc] cancel{/}`,
+    content: fg(C.subtext, "[Enter] save    [Esc] cancel"),
     style: { bg: C.overlay, fg: C.subtext },
   })
 
@@ -70,7 +70,6 @@ export function showInputModal({ screen, title, value = "", onSubmit, onCancel }
   input.setValue(value)
   screen.render()
   input.focus()
-  // readInput enables the textbox editing mode
   input.readInput()
 }
 
@@ -89,7 +88,7 @@ export function showConfirmModal({ screen, message, onConfirm, onCancel }: Confi
     width: 42,
     height: 7,
     tags: true,
-    label: ` {${C.red}-fg}Confirm{/} `,
+    label: ` ${fg(C.red, "Confirm")} `,
     border: { type: "line" },
     style: {
       bg: C.overlay,
@@ -117,7 +116,7 @@ export function showConfirmModal({ screen, message, onConfirm, onCancel }: Confi
     width: 36,
     height: 1,
     tags: true,
-    content: `{${C.red}-fg}[y]{/} delete    {${C.subtext}-fg}[n/Esc]{/} cancel`,
+    content: `${fg(C.red, "[y]")} delete    ${fg(C.subtext, "[n/Esc]")} cancel`,
     style: { bg: C.overlay, fg: C.subtext },
   })
 
@@ -149,20 +148,20 @@ interface HelpOverlayOpts {
 
 export function showHelpOverlay({ screen, onClose }: HelpOverlayOpts) {
   const lines = [
-    `{${C.mauve}-fg}Keybindings{/}`,
+    fg(C.mauve, "Keybindings"),
     "",
-    `{${C.blue}-fg}h / l{/}     Switch panel`,
-    `{${C.blue}-fg}j / k{/}     Move down / up`,
-    `{${C.blue}-fg}enter{/}     Launch task`,
-    `{${C.blue}-fg}space{/}     Toggle done`,
-    `{${C.blue}-fg}a{/}         Add item`,
-    `{${C.blue}-fg}d{/}         Delete item`,
-    `{${C.blue}-fg}r{/}         Rename item`,
-    `{${C.blue}-fg}g g{/}       Jump to top`,
-    `{${C.blue}-fg}G{/}         Jump to bottom`,
-    `{${C.blue}-fg}S{/}         Rescan repos`,
-    `{${C.blue}-fg}?{/}         Toggle help`,
-    `{${C.blue}-fg}q{/}         Quit`,
+    `${fg(C.blue, "h / l")}     Switch panel`,
+    `${fg(C.blue, "j / k")}     Move down / up`,
+    `${fg(C.blue, "enter")}     Launch task`,
+    `${fg(C.blue, "space")}     Toggle done`,
+    `${fg(C.blue, "a")}         Add item`,
+    `${fg(C.blue, "d")}         Delete item`,
+    `${fg(C.blue, "r")}         Rename item`,
+    `${fg(C.blue, "g g")}       Jump to top`,
+    `${fg(C.blue, "G")}         Jump to bottom`,
+    `${fg(C.blue, "S")}         Rescan repos`,
+    `${fg(C.blue, "?")}         Toggle help`,
+    `${fg(C.blue, "q")}         Quit`,
   ]
 
   const modal = blessed.box({
@@ -172,7 +171,7 @@ export function showHelpOverlay({ screen, onClose }: HelpOverlayOpts) {
     width: 36,
     height: lines.length + 4,
     tags: true,
-    label: ` {${C.mauve}-fg}Help{/} `,
+    label: ` ${fg(C.mauve, "Help")} `,
     border: { type: "line" },
     content: "\n" + lines.join("\n"),
     style: {
