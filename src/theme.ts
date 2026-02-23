@@ -18,6 +18,11 @@ export function fg(color: string, text: string): string {
   return `{${color}-fg}${text}{/${color}-fg}`
 }
 
+// Selection highlight — open bg+fg, close both together
+export function selLine(text: string): string {
+  return `{${C.blue}-bg}{${C.bg}-fg}${text}{/${C.bg}-fg}{/${C.blue}-bg}`
+}
+
 // Icon + name in one color — neo-blessed can't handle multi-color lines
 export function statusLine(done: boolean, partial: boolean, name: string): string {
   if (done) return fg(C.green, `✓ ${name}`)

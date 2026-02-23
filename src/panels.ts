@@ -1,6 +1,6 @@
 import blessed from "neo-blessed"
 import { execFileSync } from "child_process"
-import { C, fg, statusLine, progressBar } from "./theme"
+import { C, fg, selLine, statusLine, progressBar } from "./theme"
 import { setFocused } from "./ui"
 import { showInputModal, showConfirmModal, showHelpOverlay } from "./modal"
 import * as store from "./store"
@@ -114,7 +114,7 @@ export function setupPanels(
         : p.name
 
       if (sel) {
-        lines.push(fg(C.blue, ` ▸ ${displayName}${dirty}`))
+        lines.push(selLine(` ▸ ${displayName}${dirty} `))
       } else {
         lines.push(` ${statusLine(p.done, partial, displayName + dirty)}`)
       }
@@ -163,7 +163,7 @@ export function setupPanels(
       const sel = state.panel === "tasks" && i === state.taskIdx
 
       if (sel) {
-        lines.push(fg(C.blue, ` ▸ ${t.name}`))
+        lines.push(selLine(` ▸ ${t.name} `))
       } else {
         lines.push(` ${statusLine(t.done, false, t.name)}`)
       }
@@ -197,7 +197,7 @@ export function setupPanels(
       const sel = state.panel === "subtasks" && i === state.subtaskIdx
 
       if (sel) {
-        lines.push(fg(C.blue, ` ▸ ${s.name}`))
+        lines.push(selLine(` ▸ ${s.name} `))
       } else {
         lines.push(` ${statusLine(s.done, false, s.name)}`)
       }
