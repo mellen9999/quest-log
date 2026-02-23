@@ -1,8 +1,8 @@
 // neo-blessed's terminfo compiler chokes on foot/tmux caps — xterm-256color is universally safe
 if (!process.env.TERM?.startsWith("xterm")) process.env.TERM = "xterm-256color"
 
-import { createScreen, createHeader, createStatusBar, createPanel, createLogPanel } from "./ui"
-import { setupPanels } from "./panels"
+import { createScreen, createHeader, createStatusBar, createPanel, createTerminalPanel } from "./ui"
+import { setupPanels, cleanupSessions } from "./panels"
 import * as store from "./store"
 import { scanRepos } from "./scan"
 import { seedData } from "./seed"
@@ -18,67 +18,75 @@ if (data.projects.length === 0) {
 } else {
   // Rescan: add new repos not yet tracked
   const tracked = new Set(data.projects.map(p => p.path).filter(Boolean))
+  let added = false
   for (const repo of repos) {
     if (!tracked.has(repo.path)) {
-      store.addProject(data, repo.name, { path: repo.path })
+      store.addProject(data, repo.name, { path: repo.path, save: false })
+      added = true
     }
   }
+  if (added) store.save(data)
 }
 
 const screen = createScreen()
 const header = createHeader(screen)
 const statusBar = createStatusBar(screen)
 
+// Left panels — 3 stacked, 30% width
 const projectsPanel = createPanel({
   parent: screen,
   label: "⚔ Projects",
   top: 1,
   left: 0,
   width: "30%",
-  height: "100%-2",
+  height: "34%-1",
 })
 
 const tasksPanel = createPanel({
   parent: screen,
   label: "Tasks",
-  top: 1,
-  left: "30%",
-  width: "70%",
-  height: "60%-1",
+  top: "34%",
+  left: 0,
+  width: "30%",
+  height: "33%",
 })
 
 const subtasksPanel = createPanel({
   parent: screen,
   label: "Subtasks",
-  top: "60%",
-  left: "30%",
-  width: "70%",
-  height: "40%-1",
+  top: "67%",
+  left: 0,
+  width: "30%",
+  height: "33%-1",
 })
 
-const logPanel = createLogPanel(screen)
+// Right panel — terminal, full height
+const terminalPanel = createTerminalPanel(screen)
 
 const state: AppState = {
   data,
   panel: "projects",
+  leftPanel: "projects",
   projectIdx: 0,
   taskIdx: 0,
   subtaskIdx: 0,
   sessions: new Map(),
-  rightPaneMode: "tasks",
   inputMode: false,
   searchMode: false,
   searchQuery: "",
+  termContent: "",
+  termDirty: false,
 }
 
 setupPanels(screen, {
   projects: projectsPanel,
   tasks: tasksPanel,
   subtasks: subtasksPanel,
-  log: logPanel,
+  terminal: terminalPanel,
 }, header, statusBar, state, repos)
 
 screen.key(["C-c"], () => {
+  cleanupSessions(state)
   store.save(state.data)
   process.exit(0)
 })

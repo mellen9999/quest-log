@@ -27,10 +27,10 @@ export function save(data: QuestData): void {
   writeFileSync(DATA_PATH, JSON.stringify(data, null, 2))
 }
 
-export function addProject(data: QuestData, name: string, opts?: { path?: string; type?: "code" | "hardware" | "other" }): Project {
+export function addProject(data: QuestData, name: string, opts?: { path?: string; type?: "code" | "hardware" | "other"; save?: boolean }): Project {
   const p: Project = { id: randomUUID(), name, done: false, path: opts?.path, type: opts?.type, tasks: [] }
   data.projects.push(p)
-  save(data)
+  if (opts?.save !== false) save(data)
   return p
 }
 

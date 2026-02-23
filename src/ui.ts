@@ -71,7 +71,7 @@ export function createPanel(opts: PanelOpts) {
   })
 }
 
-export function createLogPanel(screen: blessed.Widgets.Screen) {
+export function createTerminalPanel(screen: blessed.Widgets.Screen) {
   return blessed.box({
     parent: screen,
     top: 1,
@@ -82,33 +82,16 @@ export function createLogPanel(screen: blessed.Widgets.Screen) {
     scrollable: true,
     alwaysScroll: true,
     mouse: false,
-    label: " ⚔ Session ",
+    label: " Terminal ",
     border: { type: "line" },
-    hidden: true,
     style: {
-      bg: C.surface,
+      bg: C.bg,
       fg: C.text,
-      border: { fg: C.peach },
-      label: { fg: C.peach },
+      border: { fg: C.dim },
+      label: { fg: C.dim },
       scrollbar: { bg: C.overlay },
     },
     scrollbar: { ch: "▐", style: { bg: C.overlay } } as any,
-  })
-}
-
-export function createInputBox(screen: blessed.Widgets.Screen) {
-  return blessed.textbox({
-    parent: screen,
-    bottom: 1,
-    left: "30%",
-    width: "70%",
-    height: 1,
-    inputOnFocus: true,
-    hidden: true,
-    style: {
-      bg: C.overlay,
-      fg: C.text,
-    },
   })
 }
 

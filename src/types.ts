@@ -1,3 +1,5 @@
+import type { Terminal } from "@xterm/headless"
+
 export interface Subtask {
   id: string
   name: string
@@ -24,24 +26,35 @@ export interface QuestData {
   projects: Project[]
 }
 
-export type PanelName = "projects" | "tasks" | "subtasks"
+export type PanelName = "projects" | "tasks" | "subtasks" | "terminal"
+export type LeftPanel = "projects" | "tasks" | "subtasks"
+
+export interface PtyHandle {
+  write(data: string): void
+  resize(cols: number, rows: number): void
+  kill(): void
+}
 
 export interface SessionInfo {
-  windowName: string
   projectId: string
   transcriptPath: string
   startedAt: number
+  pty: PtyHandle
+  term: Terminal
+  exitCode: number | null
 }
 
 export interface AppState {
   data: QuestData
   panel: PanelName
+  leftPanel: LeftPanel
   projectIdx: number
   taskIdx: number
   subtaskIdx: number
   sessions: Map<string, SessionInfo>
-  rightPaneMode: "tasks" | "log"
-  inputMode: boolean
+  inputMode: false | "line" | "raw"
   searchMode: boolean
   searchQuery: string
+  termContent: string
+  termDirty: boolean
 }
