@@ -40,6 +40,7 @@ export function setupPanels(
   refreshGitCache(state.data.projects)
   let modalOpen = false
   let gPending = false
+  let lastLaunch = 0
 
   function clampIndices() {
     const pLen = state.data.projects.length
@@ -399,6 +400,10 @@ export function setupPanels(
   }
 
   function launchTask() {
+    const now = Date.now()
+    if (now - lastLaunch < 1000) return
+    lastLaunch = now
+
     const proj = state.data.projects[state.projectIdx]
     if (!proj) return
 
