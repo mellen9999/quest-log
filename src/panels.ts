@@ -17,7 +17,6 @@ interface PanelSet {
   tasks: blessed.Widgets.BoxElement
   subtasks: blessed.Widgets.BoxElement
   log: blessed.Widgets.BoxElement
-  input: blessed.Widgets.TextboxElement
 }
 
 // Cache git status per project path
@@ -52,6 +51,9 @@ export function setupPanels(
 
   // Search state
   let filteredIndices: number[] = []
+
+  // Input buffer (manual handling, no blessed textbox)
+  let inputBuffer = ""
 
   // ── Helpers ──────────────────────────────────────────────
 
@@ -398,7 +400,7 @@ export function setupPanels(
     if (state.searchMode) {
       statusBar.setContent(fg(C.blue, ` / ${state.searchQuery}█`))
     } else if (state.inputMode) {
-      statusBar.setContent(fg(C.peach, " -- INSERT --"))
+      statusBar.setContent(fg(C.peach, ` > ${inputBuffer}█`))
     } else if (state.rightPaneMode === "log") {
       const sess = currentSession()
       if (sess) {
@@ -712,35 +714,33 @@ export function setupPanels(
     }
   }
 
-  // ── Session Input ──────────────────────────────────────
+  // ── Session Input (manual key handling) ─────────────────
 
   function enterInputMode() {
     const sess = currentSession()
     if (!sess) return
     state.inputMode = true
-    panels.input.show()
-    panels.input.setValue("")
+    inputBuffer = ""
     renderStatusBar()
     screen.render()
-    panels.input.focus()
-    panels.input.readInput()
   }
 
-  panels.input.on("submit", (val: string) => {
+  function exitInputMode() {
     state.inputMode = false
-    panels.input.hide()
+    inputBuffer = ""
+    renderAll()
+  }
+
+  function submitInput() {
+    const text = inputBuffer.trim()
+    state.inputMode = false
+    inputBuffer = ""
     const sess = currentSession()
-    if (sess && val.trim()) {
-      session.sendKeys(sess.windowName, val.trim())
+    if (sess && text) {
+      session.sendKeys(sess.windowName, text)
     }
     renderAll()
-  })
-
-  panels.input.on("cancel", () => {
-    state.inputMode = false
-    panels.input.hide()
-    renderAll()
-  })
+  }
 
   // ── Session Kill ───────────────────────────────────────
 
@@ -994,7 +994,31 @@ export function setupPanels(
 
   screen.on("keypress", (_ch: string, key: blessed.Widgets.Events.IKeyEventArg) => {
     if (modalOpen) return
-    if (state.inputMode) return // textbox handles its own keys
+
+    // Input mode: build input string character by character
+    if (state.inputMode) {
+      if (key.name === "escape") {
+        exitInputMode()
+        return
+      }
+      if (key.name === "backspace") {
+        inputBuffer = inputBuffer.slice(0, -1)
+        renderStatusBar()
+        screen.render()
+        return
+      }
+      if (key.name === "return" || key.name === "enter") {
+        submitInput()
+        return
+      }
+      if (key.ch && key.ch.length === 1) {
+        inputBuffer += key.ch
+        renderStatusBar()
+        screen.render()
+        return
+      }
+      return
+    }
 
     // Search mode: build query character by character
     if (state.searchMode) {

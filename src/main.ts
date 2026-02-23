@@ -1,7 +1,7 @@
 // neo-blessed's terminfo compiler chokes on foot/tmux caps — xterm-256color is universally safe
 if (!process.env.TERM?.startsWith("xterm")) process.env.TERM = "xterm-256color"
 
-import { createScreen, createHeader, createStatusBar, createPanel, createLogPanel, createInputBox } from "./ui"
+import { createScreen, createHeader, createStatusBar, createPanel, createLogPanel } from "./ui"
 import { setupPanels } from "./panels"
 import * as store from "./store"
 import { scanRepos } from "./scan"
@@ -57,7 +57,6 @@ const subtasksPanel = createPanel({
 })
 
 const logPanel = createLogPanel(screen)
-const inputBox = createInputBox(screen)
 
 const state: AppState = {
   data,
@@ -77,7 +76,6 @@ setupPanels(screen, {
   tasks: tasksPanel,
   subtasks: subtasksPanel,
   log: logPanel,
-  input: inputBox,
 }, header, statusBar, state, repos)
 
 screen.key(["C-c"], () => {
