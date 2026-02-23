@@ -1,3 +1,6 @@
+// neo-blessed's terminfo compiler chokes on foot/tmux caps — xterm-256color is universally safe
+if (!process.env.TERM?.startsWith("xterm")) process.env.TERM = "xterm-256color"
+
 import { createScreen, createHeader, createStatusBar, createPanel } from "./ui"
 import { setupPanels } from "./panels"
 import * as store from "./store"

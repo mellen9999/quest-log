@@ -6,6 +6,7 @@ export function createScreen() {
     smartCSR: true,
     title: "Quest Log",
     fullUnicode: true,
+    forceUnicode: true,
     tags: true,
     style: { bg: C.bg },
   })

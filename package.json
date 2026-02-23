@@ -10,6 +10,9 @@
   "peerDependencies": {
     "typescript": "^5"
   },
+  "scripts": {
+    "postinstall": "bun run scripts/postinstall.ts"
+  },
   "dependencies": {
     "neo-blessed": "^0.2.0"
   }
