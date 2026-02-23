@@ -110,15 +110,32 @@ export function setupPanels(
       const bgAttr = sel ? `{${C.blue}-bg}{${C.bg}-fg}` : ""
       const bgEnd = sel ? "{/}" : ""
 
-      // Git dirty indicator
+      // Git dirty indicator — truncate name to fit panel
       const git = p.path ? gitCache.get(p.path) : null
-      const dirtyMark = git?.dirty ? ` {${C.yellow}-fg}*{/}` : ""
+      const dirtyMark = git?.dirty ? " *" : ""
+      const panelWidth = (panels.projects.width as number) - 2
+      const nameMax = panelWidth - 4 - dirtyMark.length // " ○ " prefix + suffix space
+      const displayName = p.name.length > nameMax
+        ? p.name.slice(0, nameMax - 1) + "…"
+        : p.name
+      const dirtyTag = git?.dirty ? ` {${C.yellow}-fg}*{/}` : ""
 
-      lines.push(`${bgAttr} ${icon} {${nameFg}-fg}${p.name}{/}${dirtyMark} ${bgEnd}`)
+      lines.push(`${bgAttr} ${icon} {${nameFg}-fg}${displayName}{/}${dirtyTag} ${bgEnd}`)
 
-      // Progress bar + branch
-      const branchStr = git ? `  {${C.dim}-fg}${git.branch}{/}` : ""
-      lines.push(`   ${progressBar(stats.done, stats.total)}${branchStr}`)
+      // Progress bar + branch (truncate to fit panel)
+      const panelW = (panels.projects.width as number) - 2 // subtract borders
+      const barBase = `   ${progressBar(stats.done, stats.total)}`
+      // "   ████░░░░ 3/7" is ~19 visible chars, branch gets the rest
+      const barVisLen = 3 + 8 + 1 + `${stats.done}/${stats.total}`.length
+      if (git) {
+        const maxBranch = panelW - barVisLen - 2 // 2 for "  " gap
+        const branch = git.branch.length > maxBranch
+          ? git.branch.slice(0, maxBranch - 1) + "…"
+          : git.branch
+        lines.push(`${barBase}  {${C.dim}-fg}${branch}{/}`)
+      } else {
+        lines.push(barBase)
+      }
     }
     panel.setContent(lines.join("\n"))
 
