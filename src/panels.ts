@@ -111,8 +111,9 @@ export function setupPanels(
       // Git dirty indicator — truncate name to fit panel
       const git = p.path ? gitCache.get(p.path) : null
       const dirtyMark = git?.dirty ? " *" : ""
-      const panelWidth = (panels.projects.width as number) - 2
-      const nameMax = panelWidth - 4 - dirtyMark.length
+      const pw = (panels.projects.width as number) || 30
+      const panelWidth = pw - 2
+      const nameMax = Math.max(5, panelWidth - 4 - dirtyMark.length)
       const displayName = p.name.length > nameMax
         ? p.name.slice(0, nameMax - 1) + "…"
         : p.name
@@ -128,7 +129,7 @@ export function setupPanels(
       const barBase = `   ${progressBar(stats.done, stats.total)}`
       const barVisLen = 3 + 8 + 1 + `${stats.done}/${stats.total}`.length
       if (git) {
-        const maxBranch = panelWidth - barVisLen - 2
+        const maxBranch = Math.max(3, panelWidth - barVisLen - 2)
         const branch = git.branch.length > maxBranch
           ? git.branch.slice(0, maxBranch - 1) + "…"
           : git.branch
