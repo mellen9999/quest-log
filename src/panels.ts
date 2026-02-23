@@ -1,6 +1,6 @@
 import blessed from "neo-blessed"
 import { execFileSync } from "child_process"
-import { C, fg, statusIcon, progressBar } from "./theme"
+import { C, fg, statusLine, progressBar } from "./theme"
 import { setFocused } from "./ui"
 import { showInputModal, showConfirmModal, showHelpOverlay } from "./modal"
 import * as store from "./store"
@@ -104,39 +104,32 @@ export function setupPanels(
       const sel = state.panel === "projects" && i === state.projectIdx
       const stats = store.projectStats(p)
       const partial = store.isPartiallyDone(p)
-      const icon = statusIcon(p.done, partial)
-
-      const nameFg = p.done ? C.dim : C.text
-
-      // Git dirty indicator — truncate name to fit panel
       const git = p.path ? gitCache.get(p.path) : null
-      const dirtyMark = git?.dirty ? " *" : ""
+      const dirty = git?.dirty ? " *" : ""
       const pw = (panels.projects.width as number) || 30
       const panelWidth = pw - 2
-      const nameMax = Math.max(5, panelWidth - 4 - dirtyMark.length)
+      const nameMax = Math.max(5, panelWidth - 4 - dirty.length)
       const displayName = p.name.length > nameMax
         ? p.name.slice(0, nameMax - 1) + "…"
         : p.name
-      const dirtyStr = git?.dirty ? ` ${fg(C.yellow, "*")}` : ""
 
       if (sel) {
-        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${displayName}${dirtyStr} {/${C.bg}-fg}{/${C.blue}-bg}`)
+        lines.push(fg(C.blue, ` ▸ ${displayName}${dirty}`))
       } else {
-        // Sequential segments — no nesting
-        lines.push(` ${icon} ${fg(nameFg, displayName)}${dirtyStr}`)
+        lines.push(` ${statusLine(p.done, partial, displayName + dirty)}`)
       }
 
-      // Progress bar + branch (truncate to fit panel)
-      const barBase = `   ${progressBar(stats.done, stats.total)}`
-      const barVisLen = 3 + 8 + 1 + `${stats.done}/${stats.total}`.length
+      // Progress bar + branch
+      const bar = `   ${progressBar(stats.done, stats.total)}`
       if (git) {
+        const barVisLen = 3 + 8 + 1 + `${stats.done}/${stats.total}`.length
         const maxBranch = Math.max(3, panelWidth - barVisLen - 2)
         const branch = git.branch.length > maxBranch
           ? git.branch.slice(0, maxBranch - 1) + "…"
           : git.branch
-        lines.push(`${barBase}  ${fg(C.dim, branch)}`)
+        lines.push(`${bar}  ${fg(C.dim, branch)}`)
       } else {
-        lines.push(barBase)
+        lines.push(bar)
       }
     }
     panel.setContent(lines.join("\n"))
@@ -168,13 +161,11 @@ export function setupPanels(
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i]
       const sel = state.panel === "tasks" && i === state.taskIdx
-      const icon = statusIcon(t.done)
-      const nameFg = t.done ? C.dim : C.text
 
       if (sel) {
-        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${t.name} {/${C.bg}-fg}{/${C.blue}-bg}`)
+        lines.push(fg(C.blue, ` ▸ ${t.name}`))
       } else {
-        lines.push(` ${icon} ${fg(nameFg, t.name)}`)
+        lines.push(` ${statusLine(t.done, false, t.name)}`)
       }
     }
     panel.setContent(lines.join("\n"))
@@ -204,13 +195,11 @@ export function setupPanels(
     for (let i = 0; i < subtasks.length; i++) {
       const s = subtasks[i]
       const sel = state.panel === "subtasks" && i === state.subtaskIdx
-      const icon = statusIcon(s.done)
-      const nameFg = s.done ? C.dim : C.text
 
       if (sel) {
-        lines.push(`{${C.blue}-bg}{${C.bg}-fg} ${icon} ${s.name} {/${C.bg}-fg}{/${C.blue}-bg}`)
+        lines.push(fg(C.blue, ` ▸ ${s.name}`))
       } else {
-        lines.push(` ${icon} ${fg(nameFg, s.name)}`)
+        lines.push(` ${statusLine(s.done, false, s.name)}`)
       }
     }
     panel.setContent(lines.join("\n"))
