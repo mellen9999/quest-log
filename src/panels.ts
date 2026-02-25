@@ -109,6 +109,26 @@ export function setupPanels(
     const pLen = state.data.projects.length
     state.projectIdx = pLen === 0 ? 0 : Math.min(state.projectIdx, pLen - 1)
 
+    // If landed on a hidden project, find nearest visible one
+    if (pLen > 0 && !state.showArchived) {
+      const p = state.data.projects[state.projectIdx]
+      if (p?.done && !state.sessions.has(p.id)) {
+        // Search forward then backward for a visible project
+        let found = -1
+        for (let i = state.projectIdx + 1; i < pLen; i++) {
+          const pi = state.data.projects[i]!
+          if (!pi.done || state.sessions.has(pi.id)) { found = i; break }
+        }
+        if (found === -1) {
+          for (let i = state.projectIdx - 1; i >= 0; i--) {
+            const pi = state.data.projects[i]!
+            if (!pi.done || state.sessions.has(pi.id)) { found = i; break }
+          }
+        }
+        if (found !== -1) state.projectIdx = found
+      }
+    }
+
     const proj = state.data.projects[state.projectIdx]
     const tLen = proj ? proj.tasks.length : 0
     state.taskIdx = tLen === 0 ? 0 : Math.min(state.taskIdx, tLen - 1)
@@ -530,18 +550,29 @@ export function setupPanels(
     renderAll()
   }
 
+  function isProjectHidden(idx: number): boolean {
+    if (state.showArchived) return false
+    const p = state.data.projects[idx]
+    return !!p?.done && !state.sessions.has(p.id)
+  }
+
   function move(dir: -1 | 1): void {
     if (state.searchQuery) { moveFiltered(dir); return }
 
     const len = listLength()
     if (len === 0) return
-    const idx = currentIdx()
-    const next = Math.max(0, Math.min(len - 1, idx + dir))
+    let next = currentIdx() + dir
+
+    // Skip archived projects when navigating
+    if (state.leftPanel === "projects") {
+      while (next >= 0 && next < len && isProjectHidden(next)) next += dir
+    }
+
+    if (next < 0 || next >= len) return
     setCurrentIdx(next)
     if (state.leftPanel === "projects") {
       state.taskIdx = 0
       state.subtaskIdx = 0
-      // Auto-switch terminal view when changing projects
       updateTermContentForProject()
       persistUI()
     } else if (state.leftPanel === "tasks") {
