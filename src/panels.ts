@@ -455,7 +455,7 @@ export function setupPanels(
     } else if (state.inputMode === "line") {
       statusBar.setContent(fg(C.peach, ` > ${inputBuffer}█`))
     } else if (state.inputMode === "raw") {
-      statusBar.setContent(fg(C.red, " RAW INPUT — Esc to exit"))
+      statusBar.setContent(fg(C.red, " PASSTHROUGH — Ctrl+] to exit"))
     } else if (isOnTerminal()) {
       const sess = currentSession()
       if (sess && sess.exitCode === null) {
@@ -508,11 +508,16 @@ export function setupPanels(
 
   function switchPanel(dir: -1 | 1) {
     if (dir === 1 && isOnLeft()) {
-      // l → focus terminal
+      // l → focus terminal, auto-enter raw if session running
       state.panel = "terminal"
+      const sess = currentSession()
+      if (sess && sess.exitCode === null) {
+        state.inputMode = "raw"
+      }
     } else if (dir === -1 && isOnTerminal()) {
       // h → focus left (restore leftPanel)
       state.panel = state.leftPanel
+      state.inputMode = false
     }
     renderAll()
   }
@@ -726,6 +731,7 @@ export function setupPanels(
       const sess = state.sessions.get(proj.id)!
       state.termContent = pty.snapshot(sess)
       state.panel = "terminal"
+      if (sess.exitCode === null) state.inputMode = "raw"
       renderAll()
       return
     }
@@ -814,6 +820,7 @@ export function setupPanels(
       store.save(state.data)
       state.termContent = ""
       state.panel = "terminal"
+      state.inputMode = "raw"
       renderAll()
     } else {
       log(`launchTask: session failed to create`)
@@ -1153,9 +1160,9 @@ export function setupPanels(
   screen.on("keypress", (_ch: string, key: blessed.Widgets.Events.IKeyEventArg) => {
     if (modalOpen) return
 
-    // Raw input mode: forward everything except Escape to PTY
+    // Raw input mode: forward everything to PTY, Ctrl+] to exit
     if (state.inputMode === "raw") {
-      if (key.name === "escape") {
+      if (key.ctrl && key.name === "]") {
         exitInputMode()
         return
       }

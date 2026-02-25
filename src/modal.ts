@@ -177,7 +177,7 @@ export function showHelpOverlay({ screen, onClose }: HelpOverlayOpts) {
     fg(C.mauve, "Terminal"),
     "",
     `${fg(C.blue, "i")}         Line input mode`,
-    `${fg(C.blue, "I")}         Raw passthrough mode`,
+    `${fg(C.blue, "I")}         Passthrough (Ctrl+] exit)`,
     `${fg(C.blue, "x")}         Kill session`,
     `${fg(C.blue, "L")}         View last transcript`,
     `${fg(C.blue, "c")}         Git commit`,
