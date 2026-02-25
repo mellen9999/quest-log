@@ -78,7 +78,7 @@ export function createTerminalPanel(screen: blessed.Widgets.Screen) {
     left: "30%",
     width: "70%",
     height: "100%-2",
-    tags: false,
+    tags: true,
     scrollable: true,
     alwaysScroll: true,
     mouse: false,

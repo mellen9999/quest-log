@@ -21,7 +21,12 @@ import type { AppState, PanelName, LeftPanel, SessionInfo } from "./types"
 
 const LEFT_PANELS: LeftPanel[] = ["projects", "tasks", "subtasks"]
 
-// ANSI escape helpers for the terminal panel (tags: false doesn't process blessed tags)
+// Escape braces so blessed tags: true doesn't interpret them as tags
+function escapeBraces(s: string): string {
+  return s.replace(/\{/g, "{open}").replace(/\}/g, "{close}")
+}
+
+// ANSI escape helpers for the terminal panel
 function rgb(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
@@ -397,14 +402,14 @@ export function setupPanels(
       const name = proj?.name ?? "Session"
       const dur = pty.formatDuration(sess.startedAt)
       panels.terminal.setLabel(` ${ansi(C.peach, `⚔ ${name}`)} ${ansi(C.dim, "──")} ${ansi(C.text, dur)} ${ansi(C.green, "running")} `)
-      panels.terminal.setContent(state.termContent)
+      panels.terminal.setContent(escapeBraces(state.termContent))
       const lines = state.termContent.split("\n").length
       panels.terminal.scrollTo(lines)
     } else if (sess && sess.exitCode !== null) {
       // Exited session — frozen output
       const name = proj?.name ?? "Session"
       panels.terminal.setLabel(` ${ansi(C.dim, `⚔ ${name}`)} ${ansi(C.dim, "──")} ${ansi(C.red, `exited (${sess.exitCode})`)} `)
-      panels.terminal.setContent(state.termContent)
+      panels.terminal.setContent(escapeBraces(state.termContent))
       const lines = state.termContent.split("\n").length
       panels.terminal.scrollTo(lines)
     } else if (proj) {
@@ -425,7 +430,7 @@ export function setupPanels(
             .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")  // control chars
             .replace(/\r/g, "")                              // strip CR
           panels.terminal.setLabel(` ${ansi(C.dim, "Last session output")} `)
-          panels.terminal.setContent(content)
+          panels.terminal.setContent(escapeBraces(content))
           const lines = content.split("\n").length
           panels.terminal.scrollTo(lines)
         } catch {
