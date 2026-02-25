@@ -220,11 +220,22 @@ export function killSession(sess: SessionInfo): void {
   sess.pty.kill()
 }
 
+// Convert non-SGR CSI sequences to visible equivalents
+function cleanSerializeOutput(raw: string): string {
+  return raw
+    .replace(/\r/g, "")
+    // Cursor forward \x1b[NC → N spaces
+    .replace(/\x1b\[(\d+)C/g, (_m, n) => " ".repeat(parseInt(n, 10)))
+    // Cursor down \x1b[NB → N newlines
+    .replace(/\x1b\[(\d+)B/g, (_m, n) => "\n".repeat(parseInt(n, 10)))
+    // Strip any remaining non-SGR CSI sequences
+    .replace(/\x1b\[[0-9;?]*[A-HJKSTfhlnsu]/g, "")
+}
+
 export function snapshot(sess: SessionInfo): string {
   try {
-    const html = sess.serializeAddon.serialize({ excludeModes: true })
-    // Strip \r for blessed compat, trim trailing blank lines
-    const lines = html.replace(/\r/g, "").split("\n")
+    const raw = sess.serializeAddon.serialize({ excludeModes: true })
+    const lines = cleanSerializeOutput(raw).split("\n")
     while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {
       lines.pop()
     }
@@ -287,7 +298,7 @@ export function replayTranscript(raw: string, cols = 120, rows = 500): string {
     term.loadAddon(sa)
     term.write(raw)
     // Synchronous — xterm processes writes immediately for headless
-    const result = sa.serialize({ excludeModes: true }).replace(/\r/g, "")
+    const result = cleanSerializeOutput(sa.serialize({ excludeModes: true }))
     const lines = result.split("\n")
     while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") lines.pop()
     term.dispose()
