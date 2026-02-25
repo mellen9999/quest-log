@@ -418,13 +418,8 @@ export function setupPanels(
       if (tPath && existsSync(tPath)) {
         try {
           const raw = readFileSync(tPath, "utf-8")
-          // Strip non-SGR escape sequences, keep \x1b[...m for colors
-          // neo-blessed parseContent handles the rest (strips orphan ESC, control chars)
-          const content = raw
-            .replace(/\x1b\[[0-9;?]*[A-HJKSTfhlnsu]/g, "") // CSI non-SGR (cursor, scroll, etc)
-            .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")  // OSC sequences
-            .replace(/\x1b[()][AB012]/g, "")                 // charset switches
-            .replace(/\r/g, "")                              // strip CR
+          // Replay through xterm to get rendered output with ANSI colors
+          const content = pty.replayTranscript(raw)
           panels.terminal.setLabel(` ${ansi(C.dim, "Last session output")} `)
           panels.terminal.setContent(escapeBraces(content))
           const lines = content.split("\n").length

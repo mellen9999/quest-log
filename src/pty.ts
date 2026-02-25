@@ -279,4 +279,23 @@ export function stripAnsi(s: string): string {
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "") // control chars (keep \n \r \t)
 }
 
+// Replay a raw transcript through xterm and serialize with colors
+export function replayTranscript(raw: string, cols = 120, rows = 500): string {
+  try {
+    const term = new Terminal({ cols, rows, allowProposedApi: true })
+    const sa = new SerializeAddon()
+    term.loadAddon(sa)
+    term.write(raw)
+    // Synchronous — xterm processes writes immediately for headless
+    const result = sa.serialize({ excludeModes: true }).replace(/\r/g, "")
+    const lines = result.split("\n")
+    while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") lines.pop()
+    term.dispose()
+    return lines.join("\n")
+  } catch (e) {
+    logError("replayTranscript", e)
+    return stripAnsi(raw)
+  }
+}
+
 export { SESSION_DIR }
