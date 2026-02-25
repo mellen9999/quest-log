@@ -413,7 +413,17 @@ export function setupPanels(
       if (tPath && existsSync(tPath)) {
         try {
           const raw = readFileSync(tPath, "utf-8")
-          const content = pty.stripAnsi(raw)
+          // Keep ANSI SGR codes for color, strip cursor/OSC/control sequences
+          const content = raw
+            .replace(/\x1b\[[0-9;?]*[A-HJKSTfhilmnsu]/g, (m) => {
+              // Keep SGR (ends with 'm') and strip everything else
+              return m.endsWith("m") ? m : ""
+            })
+            .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "") // OSC
+            .replace(/\x1b[()][AB012]/g, "")                // charset
+            .replace(/\x1b[a-zA-Z]/g, "")                   // 2-char ESC
+            .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")  // control chars
+            .replace(/\r/g, "")                              // strip CR
           panels.terminal.setLabel(` ${ansi(C.dim, "Last session output")} `)
           panels.terminal.setContent(content)
           const lines = content.split("\n").length
