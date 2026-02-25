@@ -34,8 +34,9 @@ export function addProject(data: QuestData, name: string, opts?: { path?: string
   return p
 }
 
-export function addTask(project: Project, name: string): Task {
+export function addTask(project: Project, name: string, description?: string): Task {
   const t: Task = { id: randomUUID(), name, done: false, subtasks: [] }
+  if (description) t.description = description
   project.tasks.push(t)
   return t
 }

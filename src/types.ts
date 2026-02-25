@@ -1,4 +1,5 @@
 import type { Terminal } from "@xterm/headless"
+import type { SerializeAddon } from "@xterm/addon-serialize"
 
 export interface Subtask {
   id: string
@@ -10,6 +11,7 @@ export interface Task {
   id: string
   name: string
   done: boolean
+  description?: string
   subtasks: Subtask[]
 }
 
@@ -19,6 +21,7 @@ export interface Project {
   done: boolean
   path?: string
   type?: "code" | "hardware" | "other"
+  lastActivity?: number
   tasks: Task[]
 }
 
@@ -41,6 +44,7 @@ export interface SessionInfo {
   startedAt: number
   pty: PtyHandle
   term: Terminal
+  serializeAddon: SerializeAddon
   exitCode: number | null
 }
 
@@ -57,4 +61,5 @@ export interface AppState {
   searchQuery: string
   termContent: string
   termDirty: boolean
+  showArchived: boolean
 }

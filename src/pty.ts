@@ -1,4 +1,5 @@
 import { Terminal } from "@xterm/headless"
+import { SerializeAddon } from "@xterm/addon-serialize"
 import { mkdirSync, existsSync, readdirSync, appendFileSync } from "fs"
 import { join } from "path"
 import { homedir } from "os"
@@ -32,6 +33,8 @@ export function launchSession(
   log(`launchSession: cmd=claude "Work on: ${taskDesc}"`)
 
   const term = new Terminal({ cols, rows, allowProposedApi: true })
+  const serializeAddon = new SerializeAddon()
+  term.loadAddon(serializeAddon)
 
   const decoder = new TextDecoder()
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -114,6 +117,7 @@ export function launchSession(
       startedAt: Date.now(),
       pty: handle,
       term,
+      serializeAddon,
       exitCode: null,
     }
 
@@ -135,6 +139,8 @@ export function launchGitSession(
   onExit: () => void,
 ): SessionInfo | null {
   const term = new Terminal({ cols, rows, allowProposedApi: true })
+  const serializeAddon = new SerializeAddon()
+  term.loadAddon(serializeAddon)
   const decoder = new TextDecoder()
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
   let ptyRef: any = null
@@ -185,6 +191,7 @@ export function launchGitSession(
       startedAt: Date.now(),
       pty: handle,
       term,
+      serializeAddon,
       exitCode: null,
     }
 
@@ -214,18 +221,29 @@ export function killSession(sess: SessionInfo): void {
 }
 
 export function snapshot(sess: SessionInfo): string {
-  const buf = sess.term.buffer.active
-  const lines: string[] = []
-  const end = buf.baseY + sess.term.rows
-  for (let y = 0; y < end; y++) {
-    const line = buf.getLine(y)
-    if (!line) continue
-    lines.push(line.translateToString(true))
+  try {
+    const html = sess.serializeAddon.serialize({ excludeModes: true })
+    // Strip \r for blessed compat, trim trailing blank lines
+    const lines = html.replace(/\r/g, "").split("\n")
+    while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {
+      lines.pop()
+    }
+    return lines.join("\n")
+  } catch {
+    // Fallback to plain text
+    const buf = sess.term.buffer.active
+    const lines: string[] = []
+    const end = buf.baseY + sess.term.rows
+    for (let y = 0; y < end; y++) {
+      const line = buf.getLine(y)
+      if (!line) continue
+      lines.push(line.translateToString(true))
+    }
+    while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {
+      lines.pop()
+    }
+    return lines.join("\n")
   }
-  while (lines.length > 0 && lines[lines.length - 1]?.trim() === "") {
-    lines.pop()
-  }
-  return lines.join("\n")
 }
 
 export function formatDuration(startedAt: number): string {

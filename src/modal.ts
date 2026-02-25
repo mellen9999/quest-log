@@ -1,5 +1,7 @@
 import blessed from "neo-blessed"
 import { C, fg } from "./theme"
+import type { SessionInfo, Project } from "./types"
+import { formatDuration } from "./pty"
 
 interface InputModalOpts {
   screen: blessed.Widgets.Screen
@@ -153,9 +155,10 @@ export function showHelpOverlay({ screen, onClose }: HelpOverlayOpts) {
     `${fg(C.blue, "h / l")}     Left ↔ terminal`,
     `${fg(C.blue, "Tab")}       Cycle left panels`,
     `${fg(C.blue, "j / k")}     Move / scroll`,
+    `${fg(C.blue, "1-9")}       Jump to item N`,
     `${fg(C.blue, "g g")}       Jump to top`,
     `${fg(C.blue, "G")}         Jump to bottom`,
-    `${fg(C.blue, "/")}         Search / filter`,
+    `${fg(C.blue, "/")}         Fuzzy search / filter`,
     "",
     fg(C.mauve, "Actions"),
     "",
@@ -164,8 +167,11 @@ export function showHelpOverlay({ screen, onClose }: HelpOverlayOpts) {
     `${fg(C.blue, "a")}         Add item`,
     `${fg(C.blue, "d")}         Delete item`,
     `${fg(C.blue, "r")}         Rename item`,
+    `${fg(C.blue, "e")}         Edit task description`,
     `${fg(C.blue, "J / K")}     Reorder item`,
     `${fg(C.blue, "y")}         Yank name`,
+    `${fg(C.blue, "A")}         Toggle archived`,
+    `${fg(C.blue, "s")}         Sessions overlay`,
     `${fg(C.blue, "S")}         Rescan repos`,
     "",
     fg(C.mauve, "Terminal"),
@@ -206,6 +212,69 @@ export function showHelpOverlay({ screen, onClose }: HelpOverlayOpts) {
       modal.destroy()
       screen.render()
       onClose()
+    }
+  }
+
+  screen.on("keypress", handler)
+  screen.render()
+}
+
+interface SessionsOverlayOpts {
+  screen: blessed.Widgets.Screen
+  sessions: Map<string, SessionInfo>
+  projects: Project[]
+  onSelect: (projectId: string) => void
+  onClose: () => void
+}
+
+export function showSessionsOverlay({ screen, sessions, projects, onSelect, onClose }: SessionsOverlayOpts) {
+  const entries: { projectId: string; name: string; dur: string; status: string }[] = []
+  for (const [pid, sess] of sessions) {
+    const proj = projects.find(p => p.id === pid)
+    const name = proj?.name ?? "Unknown"
+    const dur = formatDuration(sess.startedAt)
+    const status = sess.exitCode === null ? "running" : `exited (${sess.exitCode})`
+    entries.push({ projectId: pid, name, dur, status })
+  }
+
+  const lines = entries.map((e, i) =>
+    `  ${fg(C.blue, String(i + 1))}  ${fg(C.text, e.name)}  ${fg(C.dim, e.dur)}  ${fg(e.status === "running" ? C.green : C.red, e.status)}`,
+  )
+
+  const modal = blessed.box({
+    parent: screen,
+    top: "center",
+    left: "center",
+    width: 50,
+    height: lines.length + 4,
+    tags: true,
+    label: ` ${fg(C.peach, "Sessions")} `,
+    border: { type: "line" },
+    content: "\n" + lines.join("\n"),
+    style: {
+      bg: C.overlay,
+      fg: C.text,
+      border: { fg: C.peach },
+      label: { fg: C.peach },
+    },
+  })
+
+  const handler = (_ch: string, key: blessed.Widgets.Events.IKeyEventArg) => {
+    if (key.name === "escape" || key.ch === "s") {
+      screen.removeListener("keypress", handler)
+      modal.destroy()
+      screen.render()
+      onClose()
+      return
+    }
+    if (key.ch && key.ch >= "1" && key.ch <= "9") {
+      const idx = parseInt(key.ch, 10) - 1
+      if (idx < entries.length) {
+        screen.removeListener("keypress", handler)
+        modal.destroy()
+        screen.render()
+        onSelect(entries[idx]!.projectId)
+      }
     }
   }
 

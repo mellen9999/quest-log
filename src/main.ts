@@ -6,6 +6,7 @@ import { setupPanels, cleanupSessions } from "./panels"
 import * as store from "./store"
 import { scanRepos } from "./scan"
 import { seedData } from "./seed"
+import { loadUIState, saveUIState } from "./uistate"
 import type { AppState } from "./types"
 
 // Scan repos + seed on first run
@@ -63,19 +64,22 @@ const subtasksPanel = createPanel({
 // Right panel — terminal, full height
 const terminalPanel = createTerminalPanel(screen)
 
+const uiState = loadUIState()
+
 const state: AppState = {
   data,
-  panel: "projects",
-  leftPanel: "projects",
-  projectIdx: 0,
-  taskIdx: 0,
-  subtaskIdx: 0,
+  panel: uiState.panel === "terminal" ? "projects" : uiState.panel,
+  leftPanel: uiState.leftPanel,
+  projectIdx: Math.min(uiState.projectIdx, Math.max(0, data.projects.length - 1)),
+  taskIdx: uiState.taskIdx,
+  subtaskIdx: uiState.subtaskIdx,
   sessions: new Map(),
   inputMode: false,
   searchMode: false,
   searchQuery: "",
   termContent: "",
   termDirty: false,
+  showArchived: uiState.showArchived,
 }
 
 setupPanels(screen, {
@@ -88,5 +92,13 @@ setupPanels(screen, {
 screen.key(["C-c"], () => {
   cleanupSessions(state)
   store.save(state.data)
+  saveUIState({
+    projectIdx: state.projectIdx,
+    taskIdx: state.taskIdx,
+    subtaskIdx: state.subtaskIdx,
+    leftPanel: state.leftPanel,
+    panel: state.panel,
+    showArchived: state.showArchived,
+  })
   process.exit(0)
 })

@@ -3,10 +3,11 @@ import { watch, readFileSync, existsSync } from "fs"
 import { execFileSync } from "child_process"
 import { C, fg, selLine, statusLine, progressBar } from "./theme"
 import { setFocused } from "./ui"
-import { showInputModal, showConfirmModal, showHelpOverlay } from "./modal"
+import { showInputModal, showConfirmModal, showHelpOverlay, showSessionsOverlay } from "./modal"
 import * as store from "./store"
 import * as pty from "./pty"
 import { log, logError } from "./log"
+import { saveUIState } from "./uistate"
 
 export function cleanupSessions(state: AppState): void {
   for (const [, sess] of state.sessions) {
@@ -76,12 +77,21 @@ export function setupPanels(
   function sortProjects() {
     const selected = state.data.projects[state.projectIdx]
     state.data.projects.sort((a, b) => {
+      // Running sessions first
       const aRunning = state.sessions.has(a.id) ? 0 : 1
       const bRunning = state.sessions.has(b.id) ? 0 : 1
       if (aRunning !== bRunning) return aRunning - bRunning
+      // Undone before done
       const aDone = a.done ? 1 : 0
       const bDone = b.done ? 1 : 0
-      return aDone - bDone
+      if (aDone !== bDone) return aDone - bDone
+      // Within undone: most recently active first
+      if (!a.done && !b.done) {
+        const aAct = a.lastActivity ?? 0
+        const bAct = b.lastActivity ?? 0
+        if (aAct !== bAct) return bAct - aAct
+      }
+      return 0
     })
     // Follow selection after sort
     if (selected) {
@@ -157,14 +167,36 @@ export function setupPanels(
     return task ? task.subtasks : []
   }
 
+  function fuzzyScore(str: string, query: string): number {
+    const s = str.toLowerCase()
+    const q = query.toLowerCase()
+    let si = 0, qi = 0, score = 0, consecutive = 0
+    while (si < s.length && qi < q.length) {
+      if (s[si] === q[qi]) {
+        score += 1 + consecutive
+        // Bonus for word boundary match
+        if (si === 0 || s[si - 1] === " " || s[si - 1] === "-" || s[si - 1] === "_") score += 5
+        consecutive++
+        qi++
+      } else {
+        consecutive = 0
+      }
+      si++
+    }
+    return qi === q.length ? score : 0
+  }
+
   function computeFilteredIndices(): number[] {
     if (!state.searchQuery) return []
     const items = getSearchItems()
-    const q = state.searchQuery.toLowerCase()
-    return items.reduce((acc: number[], item, i) => {
-      if (item.name.toLowerCase().includes(q)) acc.push(i)
-      return acc
-    }, [])
+    const q = state.searchQuery
+    const scored: { idx: number; score: number }[] = []
+    for (let i = 0; i < items.length; i++) {
+      const s = fuzzyScore(items[i]!.name, q)
+      if (s > 0) scored.push({ idx: i, score: s })
+    }
+    scored.sort((a, b) => b.score - a.score)
+    return scored.map(s => s.idx)
   }
 
   function moveFiltered(dir: 1 | -1): void {
@@ -199,6 +231,7 @@ export function setupPanels(
     const s = store.globalStats(state.data)
     const sess = currentSession()
     const durStr = sess ? ` ${fg(C.dim, "│")} ${fg(C.peach, pty.formatDuration(sess.startedAt))}` : ""
+    const archStr = state.showArchived ? ` ${fg(C.dim, "│")} ${fg(C.yellow, "[ALL]")}` : ""
     header.setContent(
       ` ${fg(C.mauve, "⚔ Quest Log")}` +
       `${fg(C.dim, " ──")} ` +
@@ -207,7 +240,8 @@ export function setupPanels(
       `${fg(C.text, String(s.tasks))} ${fg(C.subtext, "tasks")}` +
       `${fg(C.dim, " │")} ` +
       `${fg(C.text, `${s.pct}%`)} ${fg(C.subtext, "done")}` +
-      durStr,
+      durStr +
+      archStr,
     )
   }
 
@@ -230,7 +264,10 @@ export function setupPanels(
     for (let i = 0; i < projects.length; i++) {
       const p = projects[i]!
 
-      if (searchQ && state.leftPanel === "projects" && !p.name.toLowerCase().includes(searchQ)) continue
+      // Archive filter: hide done projects unless showArchived
+      if (p.done && !state.showArchived && !state.sessions.has(p.id)) continue
+
+      if (searchQ && state.leftPanel === "projects" && fuzzyScore(p.name, state.searchQuery) === 0) continue
 
       const sel = state.leftPanel === "projects" && i === state.projectIdx
       if (sel) displayLine = lines.length
@@ -296,7 +333,7 @@ export function setupPanels(
 
     for (let i = 0; i < tasks.length; i++) {
       const t = tasks[i]!
-      if (searchQ && state.leftPanel === "tasks" && !t.name.toLowerCase().includes(searchQ)) continue
+      if (searchQ && state.leftPanel === "tasks" && fuzzyScore(t.name, state.searchQuery) === 0) continue
 
       const sel = state.leftPanel === "tasks" && i === state.taskIdx
       if (sel) displayIdx = lines.length
@@ -336,7 +373,7 @@ export function setupPanels(
 
     for (let i = 0; i < subtasks.length; i++) {
       const s = subtasks[i]!
-      if (searchQ && state.leftPanel === "subtasks" && !s.name.toLowerCase().includes(searchQ)) continue
+      if (searchQ && state.leftPanel === "subtasks" && fuzzyScore(s.name, state.searchQuery) === 0) continue
 
       const sel = state.leftPanel === "subtasks" && i === state.subtaskIdx
       if (sel) displayIdx = lines.length
@@ -421,7 +458,7 @@ export function setupPanels(
         statusBar.setContent(fg(C.subtext, " h=back | c=commit | D=diff | P=push | L=transcript | ?=help"))
       }
     } else {
-      statusBar.setContent(fg(C.subtext, " Tab=cycle | l=terminal | j/k=move | enter=launch | space=toggle | /=search | ?=help | q=quit"))
+      statusBar.setContent(fg(C.subtext, " Tab=cycle | l=term | j/k=move | 1-9=jump | /=search | e=desc | A=archive | s=sessions | ?=help"))
     }
   }
 
@@ -495,6 +532,7 @@ export function setupPanels(
       state.subtaskIdx = 0
       // Auto-switch terminal view when changing projects
       updateTermContentForProject()
+      persistUI()
     } else if (state.leftPanel === "tasks") {
       state.subtaskIdx = 0
     }
@@ -692,12 +730,14 @@ export function setupPanels(
 
     if (state.leftPanel === "subtasks" && subtask && task) {
       taskDesc = `${task.name}: ${subtask.name}`
+      if (task.description) taskDesc += `\n\nContext: ${task.description}`
     } else if (state.leftPanel === "tasks" && task) {
       taskDesc = task.name
       if (task.subtasks.length > 0) {
         const subs = task.subtasks.filter(s => !s.done).map(s => s.name)
         if (subs.length > 0) taskDesc += ` (subtasks: ${subs.join(", ")})`
       }
+      if (task.description) taskDesc += `\n\nContext: ${task.description}`
     } else if (state.leftPanel === "projects") {
       const pending = proj.tasks.filter(t => !t.done).map(t => t.name)
       taskDesc = pending.length > 0
@@ -764,6 +804,8 @@ export function setupPanels(
     if (sess) {
       log(`launchTask: session created, switching to terminal`)
       state.sessions.set(proj.id, sess)
+      proj.lastActivity = Date.now()
+      store.save(state.data)
       state.termContent = ""
       state.panel = "terminal"
       renderAll()
@@ -984,6 +1026,79 @@ export function setupPanels(
 
   // ── Search ─────────────────────────────────────────────
 
+  function persistUI() {
+    saveUIState({
+      projectIdx: state.projectIdx,
+      taskIdx: state.taskIdx,
+      subtaskIdx: state.subtaskIdx,
+      leftPanel: state.leftPanel,
+      panel: state.panel,
+      showArchived: state.showArchived,
+    })
+  }
+
+  function editDescription() {
+    if (modalOpen) return
+    if (state.leftPanel !== "tasks") return
+    const proj = currentProject()
+    const task = proj?.tasks[state.taskIdx]
+    if (!task) return
+    modalOpen = true
+
+    showInputModal({
+      screen,
+      title: "Description",
+      value: task.description ?? "",
+      onSubmit: (val) => {
+        modalOpen = false
+        task.description = val
+        store.save(state.data)
+        renderAll()
+      },
+      onCancel: () => {
+        modalOpen = false
+        renderAll()
+      },
+    })
+  }
+
+  function toggleArchived() {
+    state.showArchived = !state.showArchived
+    clampIndices()
+    persistUI()
+    renderAll()
+  }
+
+  function showSessions() {
+    if (modalOpen) return
+    if (state.sessions.size === 0) return
+    modalOpen = true
+    showSessionsOverlay({
+      screen,
+      sessions: state.sessions,
+      projects: state.data.projects,
+      onSelect: (projectId) => {
+        modalOpen = false
+        const idx = state.data.projects.findIndex(p => p.id === projectId)
+        if (idx !== -1) {
+          state.projectIdx = idx
+          state.taskIdx = 0
+          state.subtaskIdx = 0
+          const sess = state.sessions.get(projectId)
+          if (sess) {
+            state.termContent = pty.snapshot(sess)
+            state.panel = "terminal"
+          }
+        }
+        renderAll()
+      },
+      onClose: () => {
+        modalOpen = false
+        renderAll()
+      },
+    })
+  }
+
   function enterSearch() {
     state.searchMode = true
     state.searchQuery = ""
@@ -1175,7 +1290,26 @@ export function setupPanels(
         case "q":
           cleanupSessions(state)
           store.save(state.data)
+          persistUI()
           process.exit(0)
+      }
+      return
+    }
+
+    // Number key navigation (1-9)
+    if (key.ch && key.ch >= "1" && key.ch <= "9" && isOnLeft()) {
+      const target = parseInt(key.ch, 10) - 1
+      const len = listLength()
+      if (target < len) {
+        setCurrentIdx(target)
+        if (state.leftPanel === "projects") {
+          state.taskIdx = 0
+          state.subtaskIdx = 0
+          updateTermContentForProject()
+        } else if (state.leftPanel === "tasks") {
+          state.subtaskIdx = 0
+        }
+        renderAll()
       }
       return
     }
@@ -1237,6 +1371,15 @@ export function setupPanels(
       case "tab":
         cycleLeftPanel()
         break
+      case "A":
+        toggleArchived()
+        break
+      case "e":
+        editDescription()
+        break
+      case "s":
+        showSessions()
+        break
       case "L":
         showTranscript()
         break
@@ -1245,6 +1388,7 @@ export function setupPanels(
         break
       case "q":
         store.save(state.data)
+        persistUI()
         process.exit(0)
     }
   })
