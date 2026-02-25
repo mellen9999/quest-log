@@ -418,16 +418,12 @@ export function setupPanels(
       if (tPath && existsSync(tPath)) {
         try {
           const raw = readFileSync(tPath, "utf-8")
-          // Keep ANSI SGR codes for color, strip cursor/OSC/control sequences
+          // Strip non-SGR escape sequences, keep \x1b[...m for colors
+          // neo-blessed parseContent handles the rest (strips orphan ESC, control chars)
           const content = raw
-            .replace(/\x1b\[[0-9;?]*[A-HJKSTfhilmnsu]/g, (m) => {
-              // Keep SGR (ends with 'm') and strip everything else
-              return m.endsWith("m") ? m : ""
-            })
-            .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "") // OSC
-            .replace(/\x1b[()][AB012]/g, "")                // charset
-            .replace(/\x1b[a-zA-Z]/g, "")                   // 2-char ESC
-            .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, "")  // control chars
+            .replace(/\x1b\[[0-9;?]*[A-HJKSTfhlnsu]/g, "") // CSI non-SGR (cursor, scroll, etc)
+            .replace(/\x1b\][^\x07]*(?:\x07|\x1b\\)/g, "")  // OSC sequences
+            .replace(/\x1b[()][AB012]/g, "")                 // charset switches
             .replace(/\r/g, "")                              // strip CR
           panels.terminal.setLabel(` ${ansi(C.dim, "Last session output")} `)
           panels.terminal.setContent(escapeBraces(content))
