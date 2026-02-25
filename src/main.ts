@@ -80,6 +80,7 @@ const state: AppState = {
   termContent: "",
   termDirty: false,
   showArchived: uiState.showArchived,
+  cockpitMode: uiState.cockpitMode,
 }
 
 setupPanels(screen, {
@@ -99,6 +100,7 @@ screen.key(["C-c"], () => {
     leftPanel: state.leftPanel,
     panel: state.panel,
     showArchived: state.showArchived,
+    cockpitMode: state.cockpitMode,
   })
   process.exit(0)
 })

@@ -62,4 +62,5 @@ export interface AppState {
   termContent: string
   termDirty: boolean
   showArchived: boolean
+  cockpitMode: boolean
 }

@@ -270,6 +270,112 @@ export function setupPanels(
     )
   }
 
+  function applyCockpitLayout() {
+    if (state.cockpitMode) {
+      panels.tasks.hide()
+      panels.subtasks.hide()
+      panels.projects.top = 1
+      panels.projects.height = "100%-2" as any
+    } else {
+      panels.tasks.show()
+      panels.subtasks.show()
+      panels.projects.top = 1
+      panels.projects.height = "34%-1" as any
+    }
+  }
+
+  function toggleCockpitMode() {
+    state.cockpitMode = !state.cockpitMode
+    if (state.cockpitMode) {
+      state.leftPanel = "projects"
+      state.panel = "projects"
+    }
+    applyCockpitLayout()
+    persistUI()
+    renderAll()
+  }
+
+  function renderCockpit() {
+    const panel = panels.projects
+    const projects = state.data.projects
+
+    if (projects.length === 0) {
+      panel.setContent(
+        `\n{center}${fg(C.dim, "No quests yet")}{/center}` +
+        `\n\n{center}${fg(C.subtext, "Press ")}${fg(C.blue, "a")}${fg(C.subtext, " to add one")}{/center}`,
+      )
+      return
+    }
+
+    const lines: string[] = []
+    const pw = (panel.width as number) || 30
+    const innerW = pw - 2
+    let displayLine = -1
+
+    for (let i = 0; i < projects.length; i++) {
+      const p = projects[i]!
+
+      if (p.done && !state.showArchived && !state.sessions.has(p.id)) continue
+
+      const sel = i === state.projectIdx
+      if (sel) displayLine = lines.length
+
+      const stats = store.projectStats(p)
+      const partial = store.isPartiallyDone(p)
+      const running = state.sessions.has(p.id)
+      const sess = state.sessions.get(p.id)
+
+      // Progress string: "3/5"
+      const prog = stats.total > 0 ? `${stats.done}/${stats.total}` : ""
+
+      // Right side: running duration or next task name
+      let detail = ""
+      if (running && sess && sess.exitCode === null) {
+        detail = `running ${pty.formatDuration(sess.startedAt)}`
+      } else if (running && sess && sess.exitCode !== null) {
+        detail = `exited (${sess.exitCode})`
+      } else {
+        const next = p.tasks.find(t => !t.done)
+        if (next) detail = next.name
+      }
+
+      // Icon
+      let icon = "○"
+      let color: string = C.text
+      if (running && sess?.exitCode === null) { icon = "▶"; color = C.peach }
+      else if (running && sess?.exitCode !== null) { icon = "▶"; color = C.red }
+      else if (p.done) { icon = "✓"; color = C.green }
+      else if (partial) { icon = "◆"; color = C.yellow }
+
+      // Layout: "▶ name    3/5  detail"
+      // Name gets at most half the width, detail gets the rest
+      const progW = prog.length > 0 ? prog.length + 1 : 0
+      const fixedW = 2 + progW + 1 // icon+space + prog+space + gap
+      const nameMax = Math.max(4, Math.floor((innerW - fixedW) * 0.45))
+      const detailMax = Math.max(4, innerW - fixedW - nameMax - 1)
+
+      const displayName = p.name.length > nameMax
+        ? p.name.slice(0, nameMax - 1) + "…"
+        : p.name.padEnd(nameMax)
+
+      const displayDetail = detail.length > detailMax
+        ? detail.slice(0, detailMax - 1) + "…"
+        : detail
+
+      const progStr = prog ? ` ${fg(C.dim, prog)}` : ""
+      const detailStr = displayDetail ? ` ${fg(C.dim, displayDetail)}` : ""
+
+      if (sel) {
+        lines.push(selLine(` ${icon} ${displayName}${progStr}${detailStr} `))
+      } else {
+        lines.push(` ${fg(color, `${icon} ${displayName}`)}${progStr}${detailStr}`)
+      }
+    }
+
+    panel.setContent(lines.join("\n"))
+    if (displayLine >= 0) ensureVisible(panel, displayLine)
+  }
+
   function renderProjects() {
     const panel = panels.projects
     const projects = state.data.projects
@@ -484,7 +590,11 @@ export function setupPanels(
         statusBar.setContent(fg(C.subtext, " h=back | c=commit | D=diff | P=push | L=transcript | ?=help"))
       }
     } else {
-      statusBar.setContent(fg(C.subtext, " Tab=cycle | l=term | j/k=move | 1-9=jump | /=search | e=desc | A=archive | s=sessions | ?=help"))
+      if (state.cockpitMode) {
+        statusBar.setContent(fg(C.subtext, " l=term | j/k=move | enter=launch | 0=expand | /=search | A=archive | s=sessions | ?=help"))
+      } else {
+        statusBar.setContent(fg(C.subtext, " Tab=cycle | l=term | j/k=move | 0=cockpit | /=search | e=desc | A=archive | s=sessions | ?=help"))
+      }
     }
   }
 
@@ -498,9 +608,13 @@ export function setupPanels(
     const onTerm = isOnTerminal()
 
     // Left panels
-    for (const name of LEFT_PANELS) {
-      const isFocused = !onTerm && state.leftPanel === name
-      setFocused(panels[name], isFocused)
+    if (state.cockpitMode) {
+      setFocused(panels.projects, !onTerm)
+    } else {
+      for (const name of LEFT_PANELS) {
+        const isFocused = !onTerm && state.leftPanel === name
+        setFocused(panels[name], isFocused)
+      }
     }
 
     // Terminal panel — peach when focused, dim otherwise
@@ -509,16 +623,25 @@ export function setupPanels(
     ;(panels.terminal.style as any).label = { fg: termColor }
 
     // Update labels with focus colors
-    const pColor = (!onTerm && state.leftPanel === "projects") ? C.mauve : C.dim
-    const tColor = (!onTerm && state.leftPanel === "tasks") ? C.mauve : C.dim
-    const sColor = (!onTerm && state.leftPanel === "subtasks") ? C.mauve : C.dim
-    panels.projects.setLabel(` ${fg(pColor, "⚔ Projects")} `)
-    panels.tasks.setLabel(` ${fg(tColor, "Tasks")} `)
-    panels.subtasks.setLabel(` ${fg(sColor, "Subtasks")} `)
+    if (state.cockpitMode) {
+      const pColor = !onTerm ? C.mauve : C.dim
+      panels.projects.setLabel(` ${fg(pColor, "⚔ Cockpit")} `)
+    } else {
+      const pColor = (!onTerm && state.leftPanel === "projects") ? C.mauve : C.dim
+      const tColor = (!onTerm && state.leftPanel === "tasks") ? C.mauve : C.dim
+      const sColor = (!onTerm && state.leftPanel === "subtasks") ? C.mauve : C.dim
+      panels.projects.setLabel(` ${fg(pColor, "⚔ Projects")} `)
+      panels.tasks.setLabel(` ${fg(tColor, "Tasks")} `)
+      panels.subtasks.setLabel(` ${fg(sColor, "Subtasks")} `)
+    }
 
-    renderProjects()
-    renderTasks()
-    renderSubtasks()
+    if (state.cockpitMode) {
+      renderCockpit()
+    } else {
+      renderProjects()
+      renderTasks()
+      renderSubtasks()
+    }
     updateTerminalPanel()
 
     screen.render()
@@ -1078,6 +1201,7 @@ export function setupPanels(
       leftPanel: state.leftPanel,
       panel: state.panel,
       showArchived: state.showArchived,
+      cockpitMode: state.cockpitMode,
     })
   }
 
@@ -1413,7 +1537,7 @@ export function setupPanels(
         enterSearch()
         break
       case "tab":
-        cycleLeftPanel()
+        if (!state.cockpitMode) cycleLeftPanel()
         break
       case "A":
         toggleArchived()
@@ -1426,6 +1550,9 @@ export function setupPanels(
         break
       case "L":
         showTranscript()
+        break
+      case "0":
+        toggleCockpitMode()
         break
       case "?":
         showHelp()
@@ -1477,7 +1604,8 @@ export function setupPanels(
     renderAll()
   })
 
-  // ── Initial Render ─────────────────────────────────────
+  // ── Initial Layout + Render ──────────────────────────────
 
+  applyCockpitLayout()
   renderAll()
 }

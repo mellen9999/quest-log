@@ -13,6 +13,7 @@ export interface UIState {
   leftPanel: LeftPanel
   panel: PanelName
   showArchived: boolean
+  cockpitMode: boolean
 }
 
 const defaults: UIState = {
@@ -22,6 +23,7 @@ const defaults: UIState = {
   leftPanel: "projects",
   panel: "projects",
   showArchived: false,
+  cockpitMode: false,
 }
 
 export function loadUIState(): UIState {
